@@ -10,6 +10,9 @@ declare(strict_types=1);
  */
 namespace HyperfExt\Encryption\Contract;
 
+use HyperfExt\Encryption\Exception\DecryptException;
+use HyperfExt\Encryption\Exception\EncryptException;
+
 interface DriverInterface
 {
     /**
@@ -17,15 +20,15 @@ interface DriverInterface
      *
      * @param mixed $value
      *
-     * @throws \HyperfExt\Encryption\Exception\EncryptException
+     * @throws EncryptException
      */
     public function encrypt($value, bool $serialize = true): string;
 
     /**
      * Decrypt the given value.
      *
-     * @throws \HyperfExt\Encryption\Exception\DecryptException
+     * @throws DecryptException
      * @return mixed
      */
-    public function decrypt(string $payload, bool $unserialize = true);
+    public function decrypt(string $payload, bool $unserialize = true): mixed;
 }

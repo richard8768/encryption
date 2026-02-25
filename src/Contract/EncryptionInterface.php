@@ -15,7 +15,8 @@ interface EncryptionInterface extends DriverInterface
     /**
      * Get a driver instance.
      *
-     * @return \HyperfExt\Encryption\Contract\DriverInterface
+     * @param string|null $name
+     * @return DriverInterface
      */
     public function getDriver(?string $name = null): DriverInterface;
 }

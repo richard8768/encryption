@@ -8,6 +8,7 @@ declare(strict_types=1);
  * @contact  eric@zhu.email
  * @license  https://github.com/hyperf-ext/encryption/blob/master/LICENSE
  */
+
 namespace HyperfExt\Encryption\Driver;
 
 use HyperfExt\Encryption\Contract\SymmetricDriverInterface;
@@ -22,30 +23,42 @@ class AesDriver implements SymmetricDriverInterface
      *
      * @var string
      */
-    protected $key;
+    protected string $key;
 
     /**
      * The algorithm used for encryption.
      *
      * @var string
      */
-    protected $cipher;
+    protected string $cipher;
+
+    /**
+     * The supported cipher algorithms and their properties.
+     *
+     * @var array
+     */
+    private static array $supportedCiphers = [
+        'aes-128-cbc' => ['size' => 16, 'aead' => false],
+        'aes-256-cbc' => ['size' => 32, 'aead' => false],
+        'aes-128-gcm' => ['size' => 16, 'aead' => true],
+        'aes-256-gcm' => ['size' => 32, 'aead' => true],
+    ];
 
     /**
      * Create a new encrypter instance.
      *
-     * @throws \RuntimeException
+     * @throws RuntimeException
      */
     public function __construct(array $options = [])
     {
-        $key = base64_decode((string) ($options['key'] ?? ''));
-        $cipher = (string) ($options['cipher'] ?? 'AES-128-CBC');
+        $key = base64_decode((string)($options['key'] ?? ''));
+        $cipher = (string)($options['cipher'] ?? 'aes-128-cbc');
 
         if (static::supported($key, $cipher)) {
             $this->key = $key;
             $this->cipher = $cipher;
         } else {
-            throw new RuntimeException('The only supported ciphers are AES-128-CBC and AES-256-CBC with the correct key lengths.');
+            throw new RuntimeException('The only supported ciphers are aes-128-cbc and AES-256-CBC with the correct key lengths.');
         }
     }
 
@@ -54,53 +67,55 @@ class AesDriver implements SymmetricDriverInterface
      */
     public static function supported(string $key, string $cipher): bool
     {
-        $length = mb_strlen($key, '8bit');
+        if (!isset(self::$supportedCiphers[strtolower($cipher)])) {
+            return false;
+        }
 
-        return ($cipher === 'AES-128-CBC' && $length === 16)
-            || ($cipher === 'AES-256-CBC' && $length === 32);
+        return mb_strlen($key, '8bit') === self::$supportedCiphers[strtolower($cipher)]['size'];
     }
 
     /**
      * Create a new encryption key for the given cipher.
+     * @param array $options
+     * @return string
      */
     public static function generateKey(array $options = []): string
     {
-        $cipher = $options['cipher'] ?? 'AES-128-CBC';
-        return base64_encode(random_bytes($cipher === 'AES-128-CBC' ? 16 : 32));
+        $cipher = $options['cipher'] ?? 'aes-128-cbc';
+        return random_bytes(self::$supportedCiphers[strtolower($cipher)]['size'] ?? 32);
     }
 
     /**
      * Encrypt the given value.
      *
-     * @param mixed $value
-     *
-     * @throws \HyperfExt\Encryption\Exception\EncryptException
+     * @param $value
+     * @param bool $serialize
+     * @return string
      */
     public function encrypt($value, bool $serialize = true): string
     {
-        $iv = random_bytes(openssl_cipher_iv_length($this->cipher));
+        $iv = random_bytes(openssl_cipher_iv_length(strtolower($this->cipher)));
 
         // First we will encrypt the value using OpenSSL. After this is encrypted we
         // will proceed to calculating a MAC for the encrypted value so that this
         // value can be verified later as not having been changed by the users.
         $value = \openssl_encrypt(
             $serialize ? serialize($value) : $value,
-            $this->cipher,
-            $this->key,
-            0,
-            $iv
+            strtolower($this->cipher), $this->key, 0, $iv, $tag
         );
 
         if ($value === false) {
             throw new EncryptException('Could not encrypt the data.');
         }
 
-        // Once we get the encrypted value we'll go ahead and base64_encode the input
-        // vector and create the MAC for the encrypted value so we can then verify
-        // its authenticity. Then, we'll JSON the data into the "payload" array.
-        $mac = $this->hash($iv = base64_encode($iv), $value);
+        $iv = base64_encode($iv);
+        $tag = base64_encode($tag ?? '');
 
-        $json = json_encode(compact('iv', 'value', 'mac'), JSON_UNESCAPED_SLASHES);
+        $mac = self::$supportedCiphers[strtolower($this->cipher)]['aead']
+            ? '' // For AEAD-algorithms, the tag / MAC is returned by openssl_encrypt...
+            : $this->hash($iv, $value, $this->key);
+
+        $json = json_encode(compact('iv', 'value', 'mac', 'tag'), JSON_UNESCAPED_SLASHES);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new EncryptException('Could not encrypt the data.');
@@ -112,16 +127,18 @@ class AesDriver implements SymmetricDriverInterface
     /**
      * Decrypt the given value.
      *
+     * @param string $payload
      * @param bool $unserialize
      *
-     * @throws \HyperfExt\Encryption\Exception\DecryptException
      * @return mixed
      */
-    public function decrypt(string $payload, $unserialize = true)
+    public function decrypt(string $payload, bool $unserialize = true): mixed
     {
         $payload = $this->getJsonPayload($payload);
 
         $iv = base64_decode($payload['iv']);
+        $tag = empty($payload['tag']) ? null : base64_decode($payload['tag']);
+        $this->ensureTagIsValid($tag);
 
         // Here we will decrypt the value. If we are able to successfully decrypt it
         // we will then unserialize it and return it out to the caller. If we are
@@ -131,7 +148,8 @@ class AesDriver implements SymmetricDriverInterface
             $this->cipher,
             $this->key,
             0,
-            $iv
+            $iv,
+            $tag ?? ''
         );
 
         if ($decrypted === false) {
@@ -152,9 +170,11 @@ class AesDriver implements SymmetricDriverInterface
     /**
      * Create a MAC for the given value.
      *
+     * @param string $iv
      * @param mixed $value
+     * @return string
      */
-    protected function hash(string $iv, $value): string
+    protected function hash(string $iv, mixed $value): string
     {
         return hash_hmac('sha256', $iv . $value, $this->key);
     }
@@ -162,7 +182,7 @@ class AesDriver implements SymmetricDriverInterface
     /**
      * Get the JSON array from the given payload.
      *
-     * @throws \HyperfExt\Encryption\Exception\DecryptException
+     * @throws DecryptException
      */
     protected function getJsonPayload(string $payload): array
     {
@@ -171,11 +191,11 @@ class AesDriver implements SymmetricDriverInterface
         // If the payload is not valid JSON or does not have the proper keys set we will
         // assume it is invalid and bail out of the routine since we will not be able
         // to decrypt the given value. We'll also check the MAC for this encryption.
-        if (! $this->validPayload($payload)) {
+        if (!$this->validPayload($payload)) {
             throw new DecryptException('The payload is invalid.');
         }
 
-        if (! $this->validMac($payload)) {
+        if (!$this->validMac($payload)) {
             throw new DecryptException('The MAC is invalid.');
         }
 
@@ -186,15 +206,20 @@ class AesDriver implements SymmetricDriverInterface
      * Verify that the encryption payload is valid.
      *
      * @param mixed $payload
+     * @return bool
      */
-    protected function validPayload($payload): bool
+    protected function validPayload(mixed $payload): bool
     {
-        try {
-            return is_array($payload) && isset($payload['iv'], $payload['value'], $payload['mac'])
-                && strlen(base64_decode($payload['iv'], true)) === openssl_cipher_iv_length($this->cipher);
-        } catch (\Throwable $exception) {
+        if (!is_array($payload)||!isset($payload['iv'],$payload['value'],$payload['mac'])|| !is_string($payload['iv'])
+            || !is_string($payload['value'])|| !is_string($payload['mac'])) {
+            return false;
         }
-        return false;
+
+        if (isset($payload['tag']) && !is_string($payload['tag'])) {
+            return false;
+        }
+
+        return strlen(base64_decode($payload['iv'], true)) === openssl_cipher_iv_length(strtolower($this->cipher));
     }
 
     /**
@@ -202,7 +227,8 @@ class AesDriver implements SymmetricDriverInterface
      */
     protected function validMac(array $payload): bool
     {
-        $calculated = $this->calculateMac($payload, $bytes = random_bytes(16));
+        $bytes = random_bytes(16);
+        $calculated = $this->calculateMac($payload, $bytes);
 
         return hash_equals(
             hash_hmac('sha256', $payload['mac'], $bytes, true),
@@ -213,9 +239,11 @@ class AesDriver implements SymmetricDriverInterface
     /**
      * Calculate the hash of the given payload.
      *
+     * @param array $payload
+     * @param string $bytes
      * @return string
      */
-    protected function calculateMac(array $payload, string $bytes)
+    protected function calculateMac(array $payload, string $bytes): string
     {
         return hash_hmac(
             'sha256',
@@ -223,5 +251,22 @@ class AesDriver implements SymmetricDriverInterface
             $bytes,
             true
         );
+    }
+
+    /**
+     * Ensure the given tag is a valid tag given the selected cipher.
+     *
+     * @param string $tag
+     * @return void
+     */
+    protected function ensureTagIsValid(string $tag): void
+    {
+        if (self::$supportedCiphers[strtolower($this->cipher)]['aead'] && strlen($tag) !== 16) {
+            throw new DecryptException('Could not decrypt the data.');
+        }
+
+        if (!self::$supportedCiphers[strtolower($this->cipher)]['aead'] && is_string($tag)) {
+            throw new DecryptException('Unable to use tag because the cipher algorithm does not support AEAD.');
+        }
     }
 }

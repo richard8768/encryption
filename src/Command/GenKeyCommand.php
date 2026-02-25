@@ -18,9 +18,9 @@ class GenKeyCommand extends HyperfCommand
     /**
      * The repository instance.
      *
-     * @var \Hyperf\Contract\ConfigInterface
+     * @var ConfigInterface
      */
-    protected $config;
+    protected ConfigInterface $config;
 
     public function __construct(ConfigInterface $config)
     {
@@ -28,7 +28,7 @@ class GenKeyCommand extends HyperfCommand
         parent::__construct('gen:key');
     }
 
-    public function configure()
+    public function configure(): void
     {
         parent::configure();
         $this->setDescription('Create a secret key or key-pair for hyperf-ext/encryption');
@@ -37,7 +37,7 @@ class GenKeyCommand extends HyperfCommand
     /**
      * Handle the current command.
      */
-    public function handle()
+    public function handle(): void
     {
         $driverName = $this->choice('Select driver', array_keys($this->config->get('encryption.driver')));
 
@@ -49,9 +49,10 @@ class GenKeyCommand extends HyperfCommand
     /**
      * Generate a random key for the application.
      *
+     * @param string $driverName
      * @return string
      */
-    protected function generateRandomKey(string $driverName)
+    protected function generateRandomKey(string $driverName): string
     {
         $config = $this->config->get("encryption.driver.{$driverName}");
         return call([$config['class'], 'generateKey'], [$config['options']]);
