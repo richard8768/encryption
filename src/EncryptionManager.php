@@ -42,7 +42,7 @@ class EncryptionManager implements EncryptionInterface
         return $this->getDriver()->encrypt($value, $serialize);
     }
 
-    public function decrypt(string $payload, bool $unserialize = true)
+    public function decrypt(string $payload, bool $unserialize = true): mixed
     {
         return $this->getDriver()->decrypt($payload, $unserialize);
     }
