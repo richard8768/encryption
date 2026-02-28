@@ -11,8 +11,10 @@ declare(strict_types=1);
 namespace HyperfExt\Encryption;
 
 use Hyperf\Contract\ConfigInterface;
+use HyperfExt\Encryption\Contract\AsymmetricDriverInterface;
 use HyperfExt\Encryption\Contract\DriverInterface;
 use HyperfExt\Encryption\Contract\EncryptionInterface;
+use HyperfExt\Encryption\Contract\SymmetricDriverInterface;
 use HyperfExt\Encryption\Driver\AesDriver;
 use InvalidArgumentException;
 
@@ -50,7 +52,7 @@ class EncryptionManager implements EncryptionInterface
     /**
      * Get a driver instance.
      *
-     * @return \HyperfExt\Encryption\Contract\AsymmetricDriverInterface|\HyperfExt\Encryption\Contract\SymmetricDriverInterface
+     * @return AsymmetricDriverInterface|SymmetricDriverInterface
      */
     public function getDriver(?string $name = null): DriverInterface
     {
