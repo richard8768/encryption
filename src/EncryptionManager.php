@@ -8,13 +8,12 @@ declare(strict_types=1);
  * @contact  eric@zhu.email
  * @license  https://github.com/hyperf-ext/encryption/blob/master/LICENSE
  */
+
 namespace HyperfExt\Encryption;
 
 use Hyperf\Contract\ConfigInterface;
-use HyperfExt\Encryption\Contract\AsymmetricDriverInterface;
 use HyperfExt\Encryption\Contract\DriverInterface;
 use HyperfExt\Encryption\Contract\EncryptionInterface;
-use HyperfExt\Encryption\Contract\SymmetricDriverInterface;
 use HyperfExt\Encryption\Driver\AesDriver;
 use InvalidArgumentException;
 
@@ -23,14 +22,14 @@ class EncryptionManager implements EncryptionInterface
     /**
      * The config instance.
      *
-     * @var \Hyperf\Contract\ConfigInterface
+     * @var ConfigInterface
      */
     protected $config;
 
     /**
      * The array of created "drivers".
      *
-     * @var \HyperfExt\Encryption\Contract\DriverInterface[]
+     * @var DriverInterface[]
      */
     protected $drivers = [];
 
@@ -52,7 +51,8 @@ class EncryptionManager implements EncryptionInterface
     /**
      * Get a driver instance.
      *
-     * @return AsymmetricDriverInterface|SymmetricDriverInterface
+     * @param string|null $name
+     * @return DriverInterface
      */
     public function getDriver(?string $name = null): DriverInterface
     {
@@ -69,7 +69,7 @@ class EncryptionManager implements EncryptionInterface
 
         $driverClass = $config['class'] ?? AesDriver::class;
 
-        $driver = make($driverClass, ['options' => $config['options'] ?? []]);
+        $driver = \Hyperf\Support\make($driverClass, ['options' => $config['options'] ?? []]);
 
         return $this->drivers[$name] = $driver;
     }
