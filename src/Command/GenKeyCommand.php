@@ -43,7 +43,8 @@ class GenKeyCommand extends HyperfCommand
 
         $key = $this->generateRandomKey($driverName);
 
-        $this->line('<comment>' . $key . '</comment>');
+        $this->line('key:<comment>' . $key . '</comment>');
+        $this->line('base64_encode:<comment>' . base64_encode($key) . '</comment>');
     }
 
     /**
