@@ -63,7 +63,7 @@ class EncryptionManager implements EncryptionInterface
         $name = $name ?: $this->config->get('encryption.default', 'aes');
 
         $config = $this->config->get("encryption.driver.{$name}");
-        if (empty($config) or empty($config['class'])) {
+        if (empty($config) || empty($config['class'])) {
             throw new InvalidArgumentException(sprintf('The encryption driver config %s is invalid.', $name));
         }
 

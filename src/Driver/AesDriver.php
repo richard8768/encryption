@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace HyperfExt\Encryption\Driver;
 
+use Hyperf\Stringable\Str;
 use HyperfExt\Encryption\Contract\SymmetricDriverInterface;
 use HyperfExt\Encryption\Exception\DecryptException;
 use HyperfExt\Encryption\Exception\EncryptException;
@@ -51,7 +52,16 @@ class AesDriver implements SymmetricDriverInterface
      */
     public function __construct(array $options = [])
     {
-        $key = base64_decode((string)($options['key'] ?? ''));
+        $key = (string)($options['key'] ?? '');
+        if (empty($key)) {
+            throw new RuntimeException('No AES_KEY has been specified.');
+        }
+        $prefix = 'base64:';
+        if (!Str::startsWith($key, $prefix)) {
+            throw new RuntimeException('The AES_KEY must be base64 encoded.');
+        }
+        $key = base64_decode(Str::after($key, $prefix));
+
         $cipher = (string)($options['cipher'] ?? 'aes-128-cbc');
 
         if (static::supported($key, $cipher)) {
