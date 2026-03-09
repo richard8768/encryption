@@ -16,7 +16,8 @@ interface EncryptionInterface extends DriverInterface
      * Get a driver instance.
      *
      * @param string|null $name
+     * @param array|null $options
      * @return DriverInterface
      */
-    public function getDriver(?string $name = null): DriverInterface;
+    public function getDriver(?string $name = null, ?array $options = []): DriverInterface;
 }

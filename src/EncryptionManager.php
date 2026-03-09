@@ -52,12 +52,19 @@ class EncryptionManager implements EncryptionInterface
      * Get a driver instance.
      *
      * @param string|null $name
+     * @param array|null $options
      * @return DriverInterface
      */
-    public function getDriver(?string $name = null): DriverInterface
+    public function getDriver(?string $name = null, ?array $options = []): DriverInterface
     {
         if (isset($this->drivers[$name]) && $this->drivers[$name] instanceof DriverInterface) {
             return $this->drivers[$name];
+        }
+
+        if (!empty($options)) {
+            if (!isset($options['key'], $options['cipher'])) {
+                $options = [];
+            }
         }
 
         $name = $name ?: $this->config->get('encryption.default', 'aes');
@@ -68,8 +75,9 @@ class EncryptionManager implements EncryptionInterface
         }
 
         $driverClass = $config['class'] ?? AesDriver::class;
+        $driverOptions = (!empty($options)) ? $options : ($config['options'] ?? []);
 
-        $driver = \Hyperf\Support\make($driverClass, ['options' => $config['options'] ?? []]);
+        $driver = \Hyperf\Support\make($driverClass, ['options' => $driverOptions]);
 
         return $this->drivers[$name] = $driver;
     }
