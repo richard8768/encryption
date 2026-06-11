@@ -9,13 +9,13 @@
 ## 安装
 
 ```shell script
-composer require hyperf-ext/encryption
+composer require richard8768/encryption
 ```
 
 ## 发布配置
 
 ```shell script
-php bin/hyperf.php vendor:publish hyperf-ext/encryption
+php bin/hyperf.php vendor:publish richard8768/encryption
 ```
 
 > 配置文件位于 `config/autoload/encryption.php`。
